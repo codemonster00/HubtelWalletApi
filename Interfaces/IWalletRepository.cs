@@ -18,6 +18,7 @@ namespace HubTelWalletApi.Interfaces
 
         public Task<AppUser> GetAppUserFromPhone(string phone);
 
+        public bool ValidateTypeScheme(Wallet wallet);
 
     }
 }

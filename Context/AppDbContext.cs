@@ -27,5 +27,7 @@ namespace HubTelWalletApi.Context
         public DbSet<AppUser> Users { get; set; }
         public DbSet<Wallet> Wallets { get; set; }
 
+        public DbSet<OtpData> OtpData { get; set; }
+
     }
 }

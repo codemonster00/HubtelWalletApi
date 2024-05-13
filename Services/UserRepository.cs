@@ -19,9 +19,9 @@ namespace HubTelWalletApi.Services
              _context.SaveChanges();
         }
 
-        public  bool UserExist(string Phone)
+        public  bool UserExist(string phone)
         {
-           var result =   _context.Users.Any();
+           var result =   _context.Users.Any(x=>x.Phone==phone);
            
             return result;
 

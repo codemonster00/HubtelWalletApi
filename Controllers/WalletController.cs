@@ -1,4 +1,5 @@
-﻿using HubTelWalletApi.Context;
+﻿using AutoMapper;
+using HubTelWalletApi.Context;
 using HubTelWalletApi.Interfaces;
 using HubTelWalletApi.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -9,18 +10,21 @@ using System.Net;
 
 namespace HubTelWalletApi.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    
     public class WalletController : ControllerBase
     {
         private readonly IWalletRepository _walletRepository;
         private readonly ILogger<WalletController> _logger;
+        private readonly IMapper _mapper;
 
-        public WalletController(IWalletRepository walletRepository,ILogger<WalletController> logger)
+        public WalletController(IWalletRepository walletRepository,ILogger<WalletController> logger, IMapper mapper)
         {
            _walletRepository = walletRepository;
             _logger = logger;
+            _mapper = mapper;
         }
 
         [HttpGet("get/{id}")]
@@ -41,7 +45,8 @@ namespace HubTelWalletApi.Controllers
                 {
                     return NotFound(new GetAllWalletsResponse { Message = "Specified resource was not found", StatusCode = HttpStatusCode.NotFound});
                 }
-                return Ok(new GetWalletResponse { Message = "Resource successfully fetched", StatusCode = HttpStatusCode.OK, Wallet = wallet });
+                var walletDto = _mapper.Map<WalletDTO>(wallet);
+                return Ok(new GetWalletResponse { Message = "Resource successfully fetched", StatusCode = HttpStatusCode.OK, Wallet = walletDto });
                 // add unauthorised response here
             }
             catch (KeyNotFoundException ex)
@@ -60,7 +65,7 @@ namespace HubTelWalletApi.Controllers
             }
 
         }
-
+        
         [HttpGet("getall")]
         public async Task<IActionResult> GetAllWallets()
         {
@@ -71,8 +76,9 @@ namespace HubTelWalletApi.Controllers
                 {
                     var phone = _walletRepository.GetMobilePhoneClaimFromJwt(accessToken);
                     var allwallets = await _walletRepository.GetAllAsync(phone);
+                    var walletDtos = _mapper.Map<List<WalletDTO>>(allwallets);
 
-                    return Ok( new GetAllWalletsResponse { Message="Resource successfully fetched",StatusCode=HttpStatusCode.OK,Wallets=allwallets});
+                    return Ok( new GetAllWalletsResponse { Message="Resource successfully fetched",StatusCode=HttpStatusCode.OK,Wallets= walletDtos });
                 }
                
             }
@@ -89,7 +95,7 @@ namespace HubTelWalletApi.Controllers
 
 
         [HttpPost("Add")]
-        public async Task<IActionResult> Add([FromBody] Wallet wallet)
+        public async Task<IActionResult> Add([FromBody] WalletDTO walletdto)
         {
            try
             {
@@ -101,12 +107,26 @@ namespace HubTelWalletApi.Controllers
                 }
                 if (!ModelState.IsValid)
                 {
-                    return BadRequest();
+                    return BadRequest(new AddWalletResponse { Message=""});
                 }
+                var wallet = _mapper.Map<Wallet>(walletdto);
                 wallet.Owner =await _walletRepository.GetAppUserFromPhone(_walletRepository.GetMobilePhoneClaimFromJwt(accessToken));
+                wallet.CreatedAt= DateTime.Now;
+                //check if wallet exists
                 await _walletRepository.WalletExist(wallet);
 
+               //Check for wallet creation limit
                 await _walletRepository.ExceedCreateWalletLimit(wallet);
+                
+                //make sure wallet type and scheme correspond
+               if(!_walletRepository.ValidateTypeScheme(wallet))
+                {
+                      return BadRequest(new AddWalletResponse { Message="Wallet type and scheme mismatch",StatusCode=HttpStatusCode.BadRequest});
+                }
+
+                
+
+
 
                 var saved = await _walletRepository.AddAsync(wallet);
 
@@ -114,7 +134,7 @@ namespace HubTelWalletApi.Controllers
                 {
                     return BadRequest();
                 }
-                return Ok();
+                return CreatedAtAction(nameof(Get), new { id = wallet.Id }, wallet);
             }
             catch (InvalidOperationException ex)
             {
@@ -141,11 +161,13 @@ namespace HubTelWalletApi.Controllers
                 var phone = _walletRepository.GetMobilePhoneClaimFromJwt(accessToken);
                  await _walletRepository.DeleteAsync(id,phone);
             }
-            catch (Exception)
+            catch (NotFoundException ex)
             {
 
-                throw;
+                return NotFound( new DeleteWalletResponse { Message = ex.Message, StatusCode = HttpStatusCode.NotFound });
             }
+
+            
           
             return NoContent();
         }

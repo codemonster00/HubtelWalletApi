@@ -6,6 +6,6 @@ namespace HubTelWalletApi.Models
     {
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public Wallet? Wallet { get; set; }
+        public WalletDTO? Wallet { get; set; }
     }
 }

@@ -11,6 +11,8 @@ using System;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
+using HubTelWalletApi.Middleware;
+using Microsoft.OpenApi.Models;
 
 
 
@@ -35,8 +37,12 @@ namespace HubTelWalletApi
             // Add services to the container.
             // var configuration = builder.Configuration;
             _configuration = builder.Configuration;
+           
+
             _configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
             builder.Host.UseSerilog();
+            builder.Services.AddAutoMapper(typeof(Program));
+
 
             builder.Services.AddControllers();
             builder.Services.AddDbContext<AppDbContext>(options =>
@@ -46,7 +52,11 @@ namespace HubTelWalletApi
 
              sqloptions.EnableRetryOnFailure(maxRetryCount: 10, maxRetryDelay: TimeSpan.FromSeconds(30), errorNumbersToAdd: null);
          }));
+            builder.Services.AddSwaggerGen(option =>
+            {
+                option.SwaggerDoc("v1", new OpenApiInfo { Title = "HubTelWallet API", Version = "v1" });
 
+            });
             builder.Services.AddScoped<IOtpSender, UssdOtpSender>();
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IWalletRepository, WalletRepository>();
@@ -73,13 +83,15 @@ namespace HubTelWalletApi
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
+            app.UseMiddleware<ExceptionMiddleware>();
             app.UseSerilogRequestLogging();
             app.UseHttpsRedirection();
-
+            app.UseSwagger();
+            app.UseSwaggerUI();
             app.UseAuthentication();
             app.UseAuthorization();
 
-
+           
             app.MapControllers();
 
             app.Run();

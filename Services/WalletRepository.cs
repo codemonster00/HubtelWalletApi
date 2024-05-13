@@ -48,7 +48,7 @@ namespace HubTelWalletApi.Services
             if (existingwallet != null)
             {
 
-                throw new InvalidOperationException("This wallet already wxisits");
+                throw new InvalidOperationException("This wallet already exists");
             }
             return true;
         }
@@ -78,8 +78,9 @@ namespace HubTelWalletApi.Services
                     var result = await _context.SaveChangesAsync();
                     return true;
                 }
-                throw new KeyNotFoundException("Resource not found with specified id");
+                throw new NotFoundException("Resource not found with specified id");
             }
+           
             catch (Exception)
             {
 
@@ -142,6 +143,24 @@ namespace HubTelWalletApi.Services
         public   async Task<AppUser>  GetAppUserFromPhone(string phone)
         {
             return  await _context.Users.FirstAsync(x=>x.Phone == phone);
+        }
+
+        public bool ValidateTypeScheme(Wallet wallet)
+        {
+            if (wallet.Type == WalletType.Card)
+            {
+                return wallet.Scheme == AccountScheme.Mastercard ||
+                    wallet.Scheme == AccountScheme.Visa;
+            }
+            else if (wallet.Type == WalletType.Momo)
+            {
+                return wallet.Scheme == AccountScheme.AirtelTigo ||
+                       wallet.Scheme == AccountScheme.Mtn ||
+                       wallet.Scheme == AccountScheme.Vodafone;
+            }
+
+            // Invalid type or scheme combination
+            return false;
         }
     }
 }
